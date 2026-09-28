@@ -123,7 +123,7 @@ def _write_pid(
             # interpreter in a NEW process, so the `proc.pid` that `start`
             # reserved is the trampoline's, not ours. Before this, every
             # `jarvis start` / `jarvis gui` on Windows died here with
-            # "Another server is already registered" (#XXX).
+            # "Another server is already registered" (#1062).
             existing = None
 
         if existing is not None and existing != pid and _pid_alive(existing):

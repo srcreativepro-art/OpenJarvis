@@ -158,7 +158,7 @@ function Get-PythonCommand {
     # a perfectly good Python, `Get-Command python3` still resolves to the
     # stub, which prints "Python was not found; run without arguments to
     # install from the Microsoft Store" to stderr and exits non-zero -
-    # aborting the installer at the version check below (#XXX).
+    # aborting the installer at the version check below (#1059).
     foreach ($name in @('python', 'python3')) {
         $cmd = Get-Command $name -ErrorAction SilentlyContinue
         if (-not $cmd) { continue }
@@ -315,7 +315,7 @@ if (Test-Path (Join-Path $srcDir '.git')) {
 # toolchain into a temp dir if cargo is absent, which is why this failure is
 # so confusing: cargo appears to run fine and then every build script dies at
 # `error: linker 'link.exe' not found`. The x86_64-pc-windows-msvc target
-# needs the MSVC linker, which no earlier step installs (#XXX).
+# needs the MSVC linker, which no earlier step installs (#1060).
 function Test-MsvcLinker {
     if (Get-Command link.exe -ErrorAction SilentlyContinue) { return $true }
     # link.exe is only on PATH inside a Developer Command Prompt, so probe
@@ -332,41 +332,30 @@ Write-Info "Checking MSVC build tools (needed to compile the native extension)..
 if (Test-MsvcLinker) {
     Write-Ok "MSVC build tools present"
 } else {
-    Write-Info "MSVC build tools not found - attempting auto-install via winget..."
-    $vsOk = $false
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        # --override is required: the default VS Build Tools install ships no
-        # workload at all, so VCTools must be requested explicitly. Expect a
-        # UAC prompt and a multi-GB download.
-        & winget install --id Microsoft.VisualStudio.2022.BuildTools `
-            --silent --accept-source-agreements --accept-package-agreements `
-            --override '--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
-        if ($LASTEXITCODE -eq 0) {
-            Update-PathFromRegistry
-            $vsOk = Test-MsvcLinker
-        } else {
-            Write-Warn2 "  winget install Microsoft.VisualStudio.2022.BuildTools exited $LASTEXITCODE"
-        }
-    }
-    if (-not $vsOk) {
-        Write-Fail @"
-MSVC build tools not found, and auto-install via winget failed.
+    # Detect and instruct only. Installing the Build Tools is a multi-GB
+    # download behind a UAC prompt, which is not something an installer
+    # should start on the user's behalf without asking.
+    Write-Fail @"
+MSVC build tools not found.
 
 The next step compiles the mandatory openjarvis-rust extension, which
 needs the MSVC linker (link.exe). Without it every cargo build script
 fails with "error: linker ``link.exe`` not found".
 
-Install manually via winget:
+Install via winget - expect a multi-GB download and a UAC prompt:
 
     winget install --id Microsoft.VisualStudio.2022.BuildTools ``
         --override "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 
-or download "Build Tools for Visual Studio" from
+--override is load-bearing: the default Build Tools install ships no
+workload at all, so VCTools has to be requested explicitly.
+
+Alternatively download "Build Tools for Visual Studio" from
 https://visualstudio.microsoft.com/downloads/ and select the
-"Desktop development with C++" workload. Then re-run this installer.
+"Desktop development with C++" workload.
+
+Then re-run this installer.
 "@
-    }
-    Write-Ok "MSVC build tools installed"
 }
 
 # ---------------------------------------------------------------------------
